@@ -1,56 +1,43 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js app to Azure Web App - wannago
-
+name: Deploy Ionic 1 app to Azure App Service
+# This workflow is triggered when pushing to a main branch
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
-
+env:
+  AZURE_WEBAPP_NAME: my-ionic-app # Set this to your app service name
+  PACKAGE_PATH: './www' # Set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: 10.x # Set this to the node version to use
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  build-and-deploy:
+    runs-on: windows-2019
+    # You can use default run to set default shell to all steps
+    defaults:
+      run:
+        shell: powershell
+        # Using a specific shell https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Node.js version
+      - name: Checkout the latest source code
+        uses: actions/checkout@v2 # For more version https://github.com/actions/checkout/releases
+      - name: Use Node.js version ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v1
         with:
-          node-version: '16.x'
-
-      - name: npm install, build, and test
+          node-version: ${{ env.NODE_VERSION }}
+      # Gulp CLI already installed
+      # https://github.com/actions/virtual-environments/blob/main/images/win/scripts/Installers/Install-NodeLts.ps1
+      - name: Install Bower as global tools
         run: |
+          npm install -g bower
+      - name: Build all Node.js projects with npm
+        run: |
+          bower install
           npm install
-          npm run build --if-present
-          npm run test --if-present
-
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v2
-        with:
-          name: node-app
-          path: .
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v2
-        with:
-          name: node-app
-
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+          npm run build
+      - name: Deploy Azure App Service code Node.js and use IIS 10.0, Windows Server 2016
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'wannago'
-          slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_0D5ED374BC784BBD8A18DE99B63D3B3A }}
-          package: .
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          # Before downloading load publish profile, make sure that you have set WEBSITE_WEBDEPLOY_USE_SCM
+          # in App Service Configuration to true
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ${{ env.PACKAGE_PATH }}
